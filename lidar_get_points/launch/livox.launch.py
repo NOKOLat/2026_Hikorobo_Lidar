@@ -17,12 +17,9 @@ def generate_launch_description():
             executable='livox_node',
             name='livox_node',
             output='screen',
-            parameters=[{
-                'frame_id': 'livox_frame',
-                'publish_freq': 10.0,  # 10Hz output
-                'buffer_frames': 10,   # 10フレーム分を保持
-                'integration_time_ms': 100,  # 100ms単位でフレーム統合
-                'flip_yz': True  # Y-Z反転 (Lidar上下逆向き時はtrueに設定)
-            }]
+            # パラメータはYAMLファイルから読み込まれます
+            # (lidar_get_points/src/livox_node.cpp の LoadConfigFromYAML()参照)
+            # コマンドライン引数でオーバーライド可能:
+            # ros2 launch lidar_get_points livox.launch.py integration_time_ms:=500
         )
     ])

@@ -14,14 +14,12 @@ LivoxNode::LivoxNode() : Node("livox_node")
     // YAMLのデフォルト値を使用してパラメータを宣言
     this->declare_parameter("frame_id", frame_id_);
     this->declare_parameter("publish_freq", publish_freq_);
-    this->declare_parameter("buffer_frames", buffer_frames_);
     this->declare_parameter("integration_time_ms", integration_time_ms_);
     this->declare_parameter("flip_yz", flip_yz_);
 
     // パラメータを取得（コマンドライン引数でオーバーライド可能）
     frame_id_ = this->get_parameter("frame_id").as_string();
     publish_freq_ = this->get_parameter("publish_freq").as_double();
-    buffer_frames_ = this->get_parameter("buffer_frames").as_int();
     integration_time_ms_ = this->get_parameter("integration_time_ms").as_int();
     flip_yz_ = this->get_parameter("flip_yz").as_bool();
 
@@ -43,8 +41,8 @@ LivoxNode::LivoxNode() : Node("livox_node")
         std::bind(&LivoxNode::PublishPointCloud, this));
 
     RCLCPP_INFO(this->get_logger(),
-                "Livoxノードを開始: publish_freq=%.1fHz, buffer_frames=%d, integration_time=%dms, flip_yz=%s",
-                publish_freq_, buffer_frames_, integration_time_ms_, flip_yz_ ? "true" : "false");
+                "Livoxノードを開始: frame_id=%s, publish_freq=%.1f Hz, integration_time=%d ms, flip_yz=%s",
+                frame_id_.c_str(), publish_freq_, integration_time_ms_, flip_yz_ ? "true" : "false");
 }
 
 LivoxNode::~LivoxNode()
@@ -77,8 +75,7 @@ void LivoxNode::LoadConfigFromYAML()
         // デフォルト値を設定
         frame_id_ = "livox_frame";
         publish_freq_ = 10.0;
-        buffer_frames_ = 10;
-        integration_time_ms_ = 100;
+        integration_time_ms_ = 1000;
         flip_yz_ = false;
         return;
     }
@@ -93,12 +90,12 @@ void LivoxNode::LoadConfigFromYAML()
 
             frame_id_ = node_config["frame_id"].as<std::string>("livox_frame");
             publish_freq_ = node_config["publish_freq"].as<double>(10.0);
-            buffer_frames_ = node_config["buffer_frames"].as<int>(10);
-            integration_time_ms_ = node_config["integration_time_ms"].as<int>(100);
+            integration_time_ms_ = node_config["integration_time_ms"].as<int>(1000);
             flip_yz_ = node_config["flip_yz"].as<bool>(false);
 
             RCLCPP_INFO(this->get_logger(),
-                        "設定を読み込みました: %s", config_file.c_str());
+                        "設定を読み込みました: %s (frame_id=%s, freq=%.1f Hz, integration_time=%d ms, flip_yz=%s)",
+                        config_file.c_str(), frame_id_.c_str(), publish_freq_, integration_time_ms_, flip_yz_ ? "true" : "false");
         }
     }
     catch (const std::exception &e)
@@ -108,8 +105,7 @@ void LivoxNode::LoadConfigFromYAML()
         // エラー時はデフォルト値を設定
         frame_id_ = "livox_frame";
         publish_freq_ = 10.0;
-        buffer_frames_ = 10;
-        integration_time_ms_ = 100;
+        integration_time_ms_ = 1000;
         flip_yz_ = false;
     }
 }
@@ -219,15 +215,6 @@ void LivoxNode::GetPointCloudCallback(uint8_t handle, LivoxEthPacket *data, uint
         return;
     }
 
-    static int callback_count = 0;
-    if (callback_count % 100 == 0)
-    {
-        RCLCPP_DEBUG(rclcpp::get_logger("livox_node"),
-                     "Data callback: type=%d, points=%d, current_frame_size=%zu",
-                     data->data_type, data_num, current_frame_buffer_.size());
-    }
-    callback_count++;
-
     std::lock_guard<std::mutex> lock(cloud_mutex_);
 
     // データ型に基づいてポイントクラウドデータを処理
@@ -268,24 +255,12 @@ void LivoxNode::GetPointCloudCallback(uint8_t handle, LivoxEthPacket *data, uint
     }
 }
 
-void LivoxNode::IntegrateCurrentFrame()
+void LivoxNode::IntegrateCurrentFrame(const std::chrono::steady_clock::time_point &timestamp)
 {
     // 現在のフレームがある場合は統合バッファに追加（タイムスタンプ付き）
     if (!current_frame_buffer_.empty())
     {
-        auto now = std::chrono::steady_clock::now();
-        frame_buffer_.push_back({now, current_frame_buffer_});
-
-        // バッファフレーム数を超えたら古いフレームを削除
-        if (frame_buffer_.size() > static_cast<size_t>(buffer_frames_))
-        {
-            size_t removed_points = frame_buffer_.front().second.size();
-            frame_buffer_.pop_front();
-
-            RCLCPP_DEBUG(this->get_logger(),
-                         "Removed old frame with %zu points, buffer now has %zu frames",
-                         removed_points, frame_buffer_.size());
-        }
+        frame_buffer_.push_back({timestamp, current_frame_buffer_});
 
         RCLCPP_DEBUG(this->get_logger(),
                      "Integrated frame with %zu points, buffer now has %zu frames",
@@ -300,8 +275,11 @@ void LivoxNode::PublishPointCloud()
 {
     std::lock_guard<std::mutex> lock(cloud_mutex_);
 
+    // 現在時刻を取得（タイムスタンプの一貫性のため）
+    auto now = std::chrono::steady_clock::now();
+
     // 現在のフレームを統合バッファに追加
-    IntegrateCurrentFrame();
+    IntegrateCurrentFrame(now);
 
     if (frame_buffer_.empty())
     {
@@ -314,27 +292,32 @@ void LivoxNode::PublishPointCloud()
         return;
     }
 
-    // integration_time_ms より前のフレームを削除
-    auto now = std::chrono::steady_clock::now();
-    auto integration_duration = std::chrono::milliseconds(integration_time_ms_);
+    // 保持すべきフレーム数を計算
+    // integration_time_ms と publish_freq から決定
+    // 例: integration_time_ms=400, publish_freq=10Hz(100ms) → 400/100 = 4フレーム
+    double frame_period_ms = 1000.0 / publish_freq_;
+    int max_frames = static_cast<int>(std::round(integration_time_ms_ / frame_period_ms));
 
-    while (!frame_buffer_.empty())
+    // 最低1フレームは保持
+    if (max_frames < 1) {
+        max_frames = 1;
+    }
+
+    size_t points_removed = 0;
+    int frames_removed = 0;
+
+    // max_frames を超えるフレームを削除（FIFO）
+    while (frame_buffer_.size() > static_cast<size_t>(max_frames))
     {
+        size_t removed_points = frame_buffer_.front().second.size();
         auto frame_age = std::chrono::duration_cast<std::chrono::milliseconds>(
             now - frame_buffer_.front().first);
-
-        if (frame_age > integration_duration)
-        {
-            size_t removed_points = frame_buffer_.front().second.size();
-            frame_buffer_.pop_front();
-            RCLCPP_DEBUG(this->get_logger(),
-                         "Removed frame older than integration_time: age=%ld ms, removed %zu points",
-                         frame_age.count(), removed_points);
-        }
-        else
-        {
-            break;
-        }
+        points_removed += removed_points;
+        frames_removed++;
+        frame_buffer_.pop_front();
+        RCLCPP_DEBUG(this->get_logger(),
+                     "Removed frame: age=%ld ms, removed %zu points (keeping %d frames)",
+                     frame_age.count(), removed_points, max_frames);
     }
 
     // 統合時間内のフレームの点群を統合
@@ -348,8 +331,12 @@ void LivoxNode::PublishPointCloud()
 
     cloud->points.reserve(total_points);
 
+    // フレームの詳細情報を収集（デバッグ用）
+    std::vector<size_t> frame_sizes;
     for (const auto &frame_pair : frame_buffer_)
     {
+        frame_sizes.push_back(frame_pair.second.size());
+
         for (const auto &point : frame_pair.second)
         {
             pcl::PointXYZI p = point;
@@ -375,7 +362,19 @@ void LivoxNode::PublishPointCloud()
 
     cloud_pub_->publish(output);
 
+    // 詳細なログ出力
+    std::stringstream frame_info;
+    frame_info << "[";
+    for (size_t i = 0; i < frame_sizes.size(); ++i)
+    {
+        if (i > 0)
+            frame_info << ", ";
+        frame_info << frame_sizes[i];
+    }
+    frame_info << "]";
+
     RCLCPP_INFO(this->get_logger(),
-                "Published point cloud with %zu points from %zu frames (integration_time=%d ms)",
-                cloud->points.size(), frame_buffer_.size(), integration_time_ms_);
+                "Published: %zu points from %zu frames (max=%d, removed %d frames/%zu points) | integration_time=%d ms | frame_sizes=%s",
+                cloud->points.size(), frame_buffer_.size(), max_frames, frames_removed, points_removed,
+                integration_time_ms_, frame_info.str().c_str());
 }
