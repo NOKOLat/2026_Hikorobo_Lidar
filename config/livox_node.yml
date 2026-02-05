@@ -1,6 +1,6 @@
 livox_node:
   frame_id: "livox_frame"
-  publish_freq: 10.0          # Hz
-  buffer_frames: 10           # number of frames to buffer
-  integration_time_ms: 100    # ms
-  flip_yz: true              # coordinate system flip option
+  publish_freq: 10.0          # Hz - 発行周波数
+  buffer_frames: 10           # 保持するフレーム数
+  integration_time_ms: 100    # ms - フレーム統合時間
+  flip_yz: true              # Y-Z反転オプション（LiDAR上下逆向き対応）

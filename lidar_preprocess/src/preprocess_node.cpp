@@ -18,10 +18,10 @@ class PreprocessNode : public rclcpp::Node
 public:
     PreprocessNode() : Node("preprocess_node")
     {
-        // Load configuration from YAML file
+        // YAMLファイルから設定を読み込む
         LoadConfigFromYAML();
 
-        // Declare parameters with defaults from YAML
+        // YAMLのデフォルト値を使用してパラメータを宣言
         this->declare_parameter("roi_min_x", roi_min_x_);
         this->declare_parameter("roi_max_x", roi_max_x_);
         this->declare_parameter("roi_min_y", roi_min_y_);
@@ -32,7 +32,7 @@ public:
         this->declare_parameter("sor_mean_k", sor_mean_k_);
         this->declare_parameter("sor_std_dev_mul", sor_std_dev_mul_);
 
-        // Get parameters (can be overridden by command line args)
+        // パラメータを取得（コマンドライン引数でオーバーライド可能）
         roi_min_x_ = this->get_parameter("roi_min_x").as_double();
         roi_max_x_ = this->get_parameter("roi_max_x").as_double();
         roi_min_y_ = this->get_parameter("roi_min_y").as_double();
@@ -43,35 +43,35 @@ public:
         sor_mean_k_ = this->get_parameter("sor_mean_k").as_int();
         sor_std_dev_mul_ = this->get_parameter("sor_std_dev_mul").as_double();
 
-        // Initialize filters
+        // フィルタを初期化
         roi_filter_ = std::make_unique<ROIFilter>(
             roi_min_x_, roi_max_x_, roi_min_y_, roi_max_y_, roi_min_z_, roi_max_z_);
         voxel_filter_ = std::make_unique<VoxelFilter>(voxel_leaf_size_);
         sor_filter_ = std::make_unique<SORFilter>(sor_mean_k_, sor_std_dev_mul_);
 
-        // Create subscriber
+        // サブスクライバーを作成
         cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
             "livox/pointcloud", 10,
             std::bind(&PreprocessNode::CloudCallback, this, std::placeholders::_1));
 
-        // Create publisher
+        // パブリッシャーを作成
         cloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
             "preprocess/pointcloud", 10);
 
-        RCLCPP_INFO(this->get_logger(), "Preprocess node started");
+        RCLCPP_INFO(this->get_logger(), "前処理ノードを開始しました");
         RCLCPP_INFO(this->get_logger(),
                     "ROI: x[%.2f, %.2f], y[%.2f, %.2f], z[%.2f, %.2f]",
                     roi_min_x_, roi_max_x_, roi_min_y_, roi_max_y_, roi_min_z_, roi_max_z_);
-        RCLCPP_INFO(this->get_logger(), "Voxel leaf size: %.4f m", voxel_leaf_size_);
+        RCLCPP_INFO(this->get_logger(), "ボクセルリーフサイズ: %.4f m", voxel_leaf_size_);
         RCLCPP_INFO(this->get_logger(), "SOR: mean_k=%d, std_dev_mul=%.2f",
                     sor_mean_k_, sor_std_dev_mul_);
     }
 
 private:
-    // Configuration loading from YAML
+    // YAMLファイルから設定を読み込む
     void LoadConfigFromYAML()
     {
-        // Try to find config file in multiple locations
+        // 複数の場所から設定ファイルを探す
         std::vector<std::string> config_paths = {
             "config/preprocess_node.yml",
             "../config/preprocess_node.yml",
@@ -90,8 +90,8 @@ private:
         if (config_file.empty())
         {
             RCLCPP_WARN(this->get_logger(),
-                        "YAML config file not found. Using hardcoded defaults.");
-            // Set defaults
+                        "YAML設定ファイルが見つかりません。ハードコードされたデフォルト値を使用します。");
+            // デフォルト値を設定
             roi_min_x_ = 0.5;
             roi_max_x_ = 20.0;
             roi_min_y_ = -5.0;
@@ -112,7 +112,7 @@ private:
             {
                 YAML::Node node_config = config["preprocess_node"];
 
-                // ROI parameters
+                // ROIフィルタパラメータ
                 if (node_config["roi"])
                 {
                     YAML::Node roi = node_config["roi"];
@@ -124,14 +124,14 @@ private:
                     roi_max_z_ = roi["max_z"].as<double>(5.0);
                 }
 
-                // Voxel filter parameters
+                // ボクセルフィルタパラメータ
                 if (node_config["voxel"])
                 {
                     YAML::Node voxel = node_config["voxel"];
                     voxel_leaf_size_ = voxel["leaf_size"].as<double>(0.01);
                 }
 
-                // SOR filter parameters
+                // 統計的外れ値除去フィルタパラメータ
                 if (node_config["sor"])
                 {
                     YAML::Node sor = node_config["sor"];
@@ -140,14 +140,14 @@ private:
                 }
 
                 RCLCPP_INFO(this->get_logger(),
-                            "Loaded configuration from: %s", config_file.c_str());
+                            "設定を読み込みました: %s", config_file.c_str());
             }
         }
         catch (const std::exception &e)
         {
             RCLCPP_ERROR(this->get_logger(),
-                         "Failed to load YAML config: %s. Using defaults.", e.what());
-            // Set defaults on error
+                         "YAML設定の読み込みに失敗しました: %s。デフォルト値を使用します。", e.what());
+            // エラー時はデフォルト値を設定
             roi_min_x_ = 0.5;
             roi_max_x_ = 20.0;
             roi_min_y_ = -5.0;
@@ -161,7 +161,7 @@ private:
     }
     void CloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
-        // Convert ROS message to PCL point cloud
+        // ROS メッセージを PCL ポイントクラウドに変換
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_input(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_roi(new pcl::PointCloud<pcl::PointXYZ>);
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_voxel(new pcl::PointCloud<pcl::PointXYZ>);
@@ -169,22 +169,22 @@ private:
 
         pcl::fromROSMsg(*msg, *cloud_input);
 
-        // Apply ROI filter
+        // ROIフィルタを適用
         roi_filter_->filter(cloud_input, cloud_roi);
-        RCLCPP_DEBUG(this->get_logger(), "ROI: %lu -> %lu points",
+        RCLCPP_DEBUG(this->get_logger(), "ROI: %lu -> %lu ポイント",
                      cloud_input->size(), cloud_roi->size());
 
-        // Apply Voxel filter
+        // ボクセルフィルタを適用
         voxel_filter_->filter(cloud_roi, cloud_voxel);
-        RCLCPP_DEBUG(this->get_logger(), "Voxel: %lu -> %lu points",
+        RCLCPP_DEBUG(this->get_logger(), "ボクセル: %lu -> %lu ポイント",
                      cloud_roi->size(), cloud_voxel->size());
 
-        // Apply SOR filter
+        // 統計的外れ値除去フィルタを適用
         sor_filter_->filter(cloud_voxel, cloud_sor);
-        RCLCPP_DEBUG(this->get_logger(), "SOR: %lu -> %lu points",
+        RCLCPP_DEBUG(this->get_logger(), "SOR: %lu -> %lu ポイント",
                      cloud_voxel->size(), cloud_sor->size());
 
-        // Convert back to ROS message and publish
+        // ROS メッセージに変換して発行
         sensor_msgs::msg::PointCloud2 output_msg;
         pcl::toROSMsg(*cloud_sor, output_msg);
         output_msg.header = msg->header;

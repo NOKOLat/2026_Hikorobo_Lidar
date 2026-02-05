@@ -20,42 +20,42 @@ class LivoxNode : public rclcpp::Node
 public:
     LivoxNode() : Node("livox_node")
     {
-        // Load configuration from YAML file
+        // YAMLファイルから設定を読み込む
         LoadConfigFromYAML();
 
-        // Declare parameters with defaults from YAML
+        // YAMLのデフォルト値を使用してパラメータを宣言
         this->declare_parameter("frame_id", frame_id_);
         this->declare_parameter("publish_freq", publish_freq_);
         this->declare_parameter("buffer_frames", buffer_frames_);
         this->declare_parameter("integration_time_ms", integration_time_ms_);
         this->declare_parameter("flip_yz", flip_yz_);
 
-        // Get parameters (can be overridden by command line args)
+        // パラメータを取得（コマンドライン引数でオーバーライド可能）
         frame_id_ = this->get_parameter("frame_id").as_string();
         publish_freq_ = this->get_parameter("publish_freq").as_double();
         buffer_frames_ = this->get_parameter("buffer_frames").as_int();
         integration_time_ms_ = this->get_parameter("integration_time_ms").as_int();
         flip_yz_ = this->get_parameter("flip_yz").as_bool();
 
-        // Create publisher
+        // パブリッシャーを作成
         cloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
             "livox/pointcloud", 10);
 
-        // Initialize Livox SDK
+        // Livox SDKを初期化
         if (!InitLivoxSdk())
         {
-            RCLCPP_ERROR(this->get_logger(), "Failed to initialize Livox SDK");
+            RCLCPP_ERROR(this->get_logger(), "Livox SDKの初期化に失敗しました");
             return;
         }
 
-        // Create timer for publishing
+        // 発行用タイマーを作成
         auto period = std::chrono::duration<double>(1.0 / publish_freq_);
         timer_ = this->create_wall_timer(
             std::chrono::duration_cast<std::chrono::milliseconds>(period),
             std::bind(&LivoxNode::PublishPointCloud, this));
 
         RCLCPP_INFO(this->get_logger(),
-                    "Livox node started: publish_freq=%.1fHz, buffer_frames=%d, integration_time=%dms, flip_yz=%s",
+                    "Livoxノードを開始: publish_freq=%.1fHz, buffer_frames=%d, integration_time=%dms, flip_yz=%s",
                     publish_freq_, buffer_frames_, integration_time_ms_, flip_yz_ ? "true" : "false");
     }
 
@@ -65,10 +65,10 @@ public:
     }
 
 private:
-    // Configuration loading from YAML
+    // YAMLファイルから設定を読み込む
     void LoadConfigFromYAML()
     {
-        // Try to find config file in multiple locations
+        // 複数の場所から設定ファイルを探す
         std::vector<std::string> config_paths = {
             "config/livox_node.yml",
             "../config/livox_node.yml",
@@ -87,8 +87,8 @@ private:
         if (config_file.empty())
         {
             RCLCPP_WARN(this->get_logger(),
-                        "YAML config file not found. Using hardcoded defaults.");
-            // Set defaults
+                        "YAML設定ファイルが見つかりません。ハードコードされたデフォルト値を使用します。");
+            // デフォルト値を設定
             frame_id_ = "livox_frame";
             publish_freq_ = 10.0;
             buffer_frames_ = 10;
@@ -112,14 +112,14 @@ private:
                 flip_yz_ = node_config["flip_yz"].as<bool>(false);
 
                 RCLCPP_INFO(this->get_logger(),
-                            "Loaded configuration from: %s", config_file.c_str());
+                            "設定を読み込みました: %s", config_file.c_str());
             }
         }
         catch (const std::exception &e)
         {
             RCLCPP_ERROR(this->get_logger(),
-                         "Failed to load YAML config: %s. Using defaults.", e.what());
-            // Set defaults on error
+                         "YAML設定の読み込みに失敗しました: %s。デフォルト値を使用します。", e.what());
+            // エラー時はデフォルト値を設定
             frame_id_ = "livox_frame";
             publish_freq_ = 10.0;
             buffer_frames_ = 10;
