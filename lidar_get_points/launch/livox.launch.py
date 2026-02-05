@@ -21,7 +21,8 @@ def generate_launch_description():
                 'frame_id': 'livox_frame',
                 'publish_freq': 10.0,  # 10Hz output
                 'buffer_frames': 10,   # 10フレーム分を保持
-                'integration_time_ms': 100  # 100ms単位でフレーム統合
+                'integration_time_ms': 100,  # 100ms単位でフレーム統合
+                'flip_yz': True  # Y-Z反転 (Lidar上下逆向き時はtrueに設定)
             }]
         )
     ])

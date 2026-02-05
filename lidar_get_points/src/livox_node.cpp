@@ -22,11 +22,13 @@ public:
         this->declare_parameter("publish_freq", 10.0);       // 10Hz output
         this->declare_parameter("buffer_frames", 10);        // 10フレーム分 (1秒積分)
         this->declare_parameter("integration_time_ms", 100); // 100ms単位でフレーム統合
+        this->declare_parameter("flip_yz", false);           // Y-Z反転オプション
 
         frame_id_ = this->get_parameter("frame_id").as_string();
         double publish_freq = this->get_parameter("publish_freq").as_double();
         buffer_frames_ = this->get_parameter("buffer_frames").as_int();
         integration_time_ms_ = this->get_parameter("integration_time_ms").as_int();
+        flip_yz_ = this->get_parameter("flip_yz").as_bool();
 
         // Create publisher
         cloud_pub_ = this->create_publisher<sensor_msgs::msg::PointCloud2>(
@@ -46,8 +48,8 @@ public:
             std::bind(&LivoxNode::PublishPointCloud, this));
 
         RCLCPP_INFO(this->get_logger(),
-                    "Livox node started: publish_freq=%.1fHz, buffer_frames=%d, integration_time=%dms",
-                    publish_freq, buffer_frames_, integration_time_ms_);
+                    "Livox node started: publish_freq=%.1fHz, buffer_frames=%d, integration_time=%dms, flip_yz=%s",
+                    publish_freq, buffer_frames_, integration_time_ms_, flip_yz_ ? "true" : "false");
     }
 
     ~LivoxNode()
@@ -271,7 +273,15 @@ private:
         {
             for (const auto &point : frame)
             {
-                cloud->points.push_back(point);
+                pcl::PointXYZI p = point;
+                // Y-Z反転処理 (Lidar上下逆向き対応)
+                // X軸周りで180度回転 (Y と Z の符号反転)
+                if (flip_yz_)
+                {
+                    p.y = -p.y;
+                    p.z = -p.z;
+                }
+                cloud->points.push_back(p);
             }
         }
 
@@ -297,6 +307,7 @@ private:
     std::string frame_id_;
     int buffer_frames_;       // 保持するフレーム数 (デフォルト10)
     int integration_time_ms_; // フレーム統合時間 (デフォルト100ms)
+    bool flip_yz_;            // Y-Z反転オプション (Lidar上下逆向き対応)
 
     static std::vector<uint8_t> device_handles_;
     static std::mutex cloud_mutex_;
