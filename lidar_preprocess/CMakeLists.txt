@@ -24,6 +24,7 @@ include_directories(
 # Point cloud preprocessing node
 add_executable(preprocess_node
   src/preprocess_node.cpp
+  src/main.cpp
   src/roi_filter.cpp
   src/voxel_filter.cpp
   src/sor_filter.cpp
