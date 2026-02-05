@@ -12,7 +12,7 @@
 │   ├── CMakeLists.txt
 │   └── src/ ...
 │
-├── lidar_detection/           <-- [3] 検知用パッケージ //処理済みデータをrvizに提供
+├──/           <-- [3] 背景差分用のノード
 │   ├── package.xml
 │   ├── CMakeLists.txt
 │   └── src/ ...

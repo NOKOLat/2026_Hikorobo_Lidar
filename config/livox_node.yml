@@ -1,6 +1,5 @@
 livox_node:
   frame_id: "livox_frame"
-  publish_freq: 10.0          # Hz - 発行周波数
-  buffer_frames: 10           # 保持するフレーム数
-  integration_time_ms: 100    # ms - フレーム統合時間
+  publish_freq: 10.0          # Hz - 発行周波数（10Hz = 100ms周期）
+  buffer_frames: 5            # 保持するフレーム数（5フレーム × 100ms ≈ 0.5秒分のデータ）
   flip_yz: true              # Y-Z反転オプション（LiDAR上下逆向き対応）
