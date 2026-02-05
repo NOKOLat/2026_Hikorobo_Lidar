@@ -27,7 +27,10 @@ link_directories(
 )
 
 # Livox data acquisition node
-add_executable(livox_node src/livox_node.cpp)
+add_executable(livox_node
+  src/livox_node.cpp
+  src/main.cpp
+)
 ament_target_dependencies(livox_node
   rclcpp
   sensor_msgs
