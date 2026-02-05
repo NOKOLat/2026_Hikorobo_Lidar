@@ -34,7 +34,7 @@ private:
     static void OnSampleCallback(livox_status status, uint8_t handle, uint8_t response, void *data);
     static void GetPointCloudCallback(uint8_t handle, LivoxEthPacket *data, uint32_t data_num, void *client_data);
 
-    void IntegrateCurrentFrame();
+    void IntegrateCurrentFrame(const std::chrono::steady_clock::time_point &timestamp);
     void PublishPointCloud();
 
     // メンバー変数
@@ -43,14 +43,13 @@ private:
 
     std::string frame_id_;
     double publish_freq_;     // 発行周波数 (デフォルト10Hz)
-    int buffer_frames_;       // 保持するフレーム数 (デフォルト10)
-    int integration_time_ms_; // フレーム統合時間 (デフォルト100ms)
+    int integration_time_ms_; // フレーム統合時間 (デフォルト1000ms)
     bool flip_yz_;            // Y-Z反転オプション (Lidar上下逆向き対応)
 
     static std::vector<uint8_t> device_handles_;
     static std::mutex cloud_mutex_;
-    static std::deque<std::vector<pcl::PointXYZI>> frame_buffer_; // 複数フレームのバッファ
-    static std::vector<pcl::PointXYZI> current_frame_buffer_;     // 現在のフレームバッファ
+    static std::deque<std::pair<std::chrono::steady_clock::time_point, std::vector<pcl::PointXYZI>>> frame_buffer_; // フレームとタイムスタンプのバッファ
+    static std::vector<pcl::PointXYZI> current_frame_buffer_;                                                       // 現在のフレームバッファ
 };
 
 #endif // LIVOX_NODE_HPP_

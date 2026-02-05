@@ -1,6 +1,8 @@
 livox_node:
   frame_id: "livox_frame"
-  publish_freq: 10.0          # Hz - 発行周波数
-  buffer_frames: 10           # 保持するフレーム数
-  integration_time_ms: 100    # ms - フレーム統合時間
-  flip_yz: true              # Y-Z反転オプション（LiDAR上下逆向き対応）
+  publish_freq: 10.0          # Hz - 発行周波数（10Hz = 100ms周期）
+  integration_time_ms: 500    # ms - 統合時間（データ数 = 100k * (integration_time_ms / 1000) )
+                              # 推奨範囲: 100ms ~ 2000ms
+                              # 理論上の最大値: メモリが許す限り制限なし（ただし実用的には2000ms以下を推奨）
+                              # 値を大きくするとメモリ使用量が増加し、リアルタイム性が低下
+  flip_yz: true               # Y-Z反転オプション（LiDAR上下逆向き対応）
