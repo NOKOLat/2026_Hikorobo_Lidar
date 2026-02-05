@@ -1,19 +1,26 @@
-# Livox MID-70 データ取得
+# Livox MID-70 データ取得・処理システム
 
-## ビルド
+## クイックスタート
+
+### 初回セットアップ（ビルド）
+
 ```bash
-colcon build --packages-select lidar_get_points
+./build.sh
 ```
 
-## 起動
+### システム起動
+
 ```bash
-source install/setup.bash
-ros2 launch lidar_get_points livox.launch.py
+./start.sh
 ```
 
-## トピック
-- `/livox/pointcloud` (sensor_msgs/PointCloud2)
+システムの起動オプションメニューが表示されます。
 
-## RViz2設定
-- Fixed Frame: `map`
-- Add → PointCloud2 → Topic: `/livox/pointcloud`
+**オプション:**
+1. データ取得のみ (lidar_get_points)
+2. 前処理ノード (lidar_preprocess)
+3. 両方同時起動
+
+## 詳細
+
+詳細な設定・パラメータについては setup.md を参照してください。
