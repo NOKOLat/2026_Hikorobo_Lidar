@@ -50,3 +50,6 @@ ENV/
 
 # OS
 Thumbs.db
+
+# local
+local_sample/
