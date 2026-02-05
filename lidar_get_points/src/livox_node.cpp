@@ -6,26 +6,33 @@
 
 #include "livox_sdk.h"
 
+#include <yaml-cpp/yaml.h>
 #include <deque>
 #include <vector>
 #include <mutex>
 #include <memory>
 #include <chrono>
+#include <filesystem>
+#include <iostream>
 
 class LivoxNode : public rclcpp::Node
 {
 public:
     LivoxNode() : Node("livox_node")
     {
-        // Declare parameters
-        this->declare_parameter("frame_id", "livox_frame");
-        this->declare_parameter("publish_freq", 10.0);       // 10Hz output
-        this->declare_parameter("buffer_frames", 10);        // 10フレーム分 (1秒積分)
-        this->declare_parameter("integration_time_ms", 100); // 100ms単位でフレーム統合
-        this->declare_parameter("flip_yz", false);           // Y-Z反転オプション
+        // Load configuration from YAML file
+        LoadConfigFromYAML();
 
+        // Declare parameters with defaults from YAML
+        this->declare_parameter("frame_id", frame_id_);
+        this->declare_parameter("publish_freq", publish_freq_);
+        this->declare_parameter("buffer_frames", buffer_frames_);
+        this->declare_parameter("integration_time_ms", integration_time_ms_);
+        this->declare_parameter("flip_yz", flip_yz_);
+
+        // Get parameters (can be overridden by command line args)
         frame_id_ = this->get_parameter("frame_id").as_string();
-        double publish_freq = this->get_parameter("publish_freq").as_double();
+        publish_freq_ = this->get_parameter("publish_freq").as_double();
         buffer_frames_ = this->get_parameter("buffer_frames").as_int();
         integration_time_ms_ = this->get_parameter("integration_time_ms").as_int();
         flip_yz_ = this->get_parameter("flip_yz").as_bool();
@@ -41,15 +48,15 @@ public:
             return;
         }
 
-        // Create timer for publishing at 10Hz
-        auto period = std::chrono::duration<double>(1.0 / publish_freq);
+        // Create timer for publishing
+        auto period = std::chrono::duration<double>(1.0 / publish_freq_);
         timer_ = this->create_wall_timer(
             std::chrono::duration_cast<std::chrono::milliseconds>(period),
             std::bind(&LivoxNode::PublishPointCloud, this));
 
         RCLCPP_INFO(this->get_logger(),
                     "Livox node started: publish_freq=%.1fHz, buffer_frames=%d, integration_time=%dms, flip_yz=%s",
-                    publish_freq, buffer_frames_, integration_time_ms_, flip_yz_ ? "true" : "false");
+                    publish_freq_, buffer_frames_, integration_time_ms_, flip_yz_ ? "true" : "false");
     }
 
     ~LivoxNode()
@@ -58,6 +65,68 @@ public:
     }
 
 private:
+    // Configuration loading from YAML
+    void LoadConfigFromYAML()
+    {
+        // Try to find config file in multiple locations
+        std::vector<std::string> config_paths = {
+            "config/livox_node.yml",
+            "../config/livox_node.yml",
+            "../../config/livox_node.yml"};
+
+        std::string config_file;
+        for (const auto &path : config_paths)
+        {
+            if (std::filesystem::exists(path))
+            {
+                config_file = path;
+                break;
+            }
+        }
+
+        if (config_file.empty())
+        {
+            RCLCPP_WARN(this->get_logger(),
+                        "YAML config file not found. Using hardcoded defaults.");
+            // Set defaults
+            frame_id_ = "livox_frame";
+            publish_freq_ = 10.0;
+            buffer_frames_ = 10;
+            integration_time_ms_ = 100;
+            flip_yz_ = false;
+            return;
+        }
+
+        try
+        {
+            YAML::Node config = YAML::LoadFile(config_file);
+
+            if (config["livox_node"])
+            {
+                YAML::Node node_config = config["livox_node"];
+
+                frame_id_ = node_config["frame_id"].as<std::string>("livox_frame");
+                publish_freq_ = node_config["publish_freq"].as<double>(10.0);
+                buffer_frames_ = node_config["buffer_frames"].as<int>(10);
+                integration_time_ms_ = node_config["integration_time_ms"].as<int>(100);
+                flip_yz_ = node_config["flip_yz"].as<bool>(false);
+
+                RCLCPP_INFO(this->get_logger(),
+                            "Loaded configuration from: %s", config_file.c_str());
+            }
+        }
+        catch (const std::exception &e)
+        {
+            RCLCPP_ERROR(this->get_logger(),
+                         "Failed to load YAML config: %s. Using defaults.", e.what());
+            // Set defaults on error
+            frame_id_ = "livox_frame";
+            publish_freq_ = 10.0;
+            buffer_frames_ = 10;
+            integration_time_ms_ = 100;
+            flip_yz_ = false;
+        }
+    }
     bool InitLivoxSdk()
     {
         if (!Init())
@@ -305,6 +374,7 @@ private:
     rclcpp::TimerBase::SharedPtr timer_;
 
     std::string frame_id_;
+    double publish_freq_;     // 発行周波数 (デフォルト10Hz)
     int buffer_frames_;       // 保持するフレーム数 (デフォルト10)
     int integration_time_ms_; // フレーム統合時間 (デフォルト100ms)
     bool flip_yz_;            // Y-Z反転オプション (Lidar上下逆向き対応)

@@ -13,6 +13,7 @@ find_package(std_msgs REQUIRED)
 find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 # Include directories
 include_directories(
@@ -34,10 +35,12 @@ ament_target_dependencies(preprocess_node
   std_msgs
   pcl_conversions
   pcl_ros
+  yaml-cpp
 )
 
 target_link_libraries(preprocess_node
   ${PCL_LIBRARIES}
+  yaml-cpp
 )
 
 install(TARGETS

@@ -1,0 +1,18 @@
+preprocess_node:
+  # ROI Filter parameters
+  roi:
+    min_x: 0.5
+    max_x: 20.0
+    min_y: -5.0
+    max_y: 5.0
+    min_z: -2.0
+    max_z: 5.0
+
+  # Voxel Filter parameters
+  voxel:
+    leaf_size: 0.05    # m
+
+  # Statistical Outlier Removal Filter parameters
+  sor:
+    mean_k: 50
+    std_dev_mul: 1.0

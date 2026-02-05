@@ -13,6 +13,7 @@ find_package(std_msgs REQUIRED)
 find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(pcl_ros REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 # Livox SDK
 include_directories(
@@ -33,10 +34,12 @@ ament_target_dependencies(livox_node
   std_msgs
   pcl_conversions
   pcl_ros
+  yaml-cpp
 )
 target_link_libraries(livox_node
   ${PCL_LIBRARIES}
   livox_sdk_static
+  yaml-cpp
 )
 
 install(TARGETS
