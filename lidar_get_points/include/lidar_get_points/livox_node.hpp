@@ -49,8 +49,8 @@ private:
 
     static std::vector<uint8_t> device_handles_;
     static std::mutex cloud_mutex_;
-    static std::deque<std::vector<pcl::PointXYZI>> frame_buffer_; // 複数フレームのバッファ
-    static std::vector<pcl::PointXYZI> current_frame_buffer_;     // 現在のフレームバッファ
+    static std::deque<std::pair<std::chrono::steady_clock::time_point, std::vector<pcl::PointXYZI>>> frame_buffer_; // フレームとタイムスタンプのバッファ
+    static std::vector<pcl::PointXYZI> current_frame_buffer_;                                                       // 現在のフレームバッファ
 };
 
 #endif // LIVOX_NODE_HPP_

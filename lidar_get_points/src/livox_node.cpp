@@ -3,7 +3,7 @@
 // Static member initialization
 std::vector<uint8_t> LivoxNode::device_handles_;
 std::mutex LivoxNode::cloud_mutex_;
-std::deque<std::vector<pcl::PointXYZI>> LivoxNode::frame_buffer_;
+std::deque<std::pair<std::chrono::steady_clock::time_point, std::vector<pcl::PointXYZI>>> LivoxNode::frame_buffer_;
 std::vector<pcl::PointXYZI> LivoxNode::current_frame_buffer_;
 
 LivoxNode::LivoxNode() : Node("livox_node")
@@ -270,15 +270,16 @@ void LivoxNode::GetPointCloudCallback(uint8_t handle, LivoxEthPacket *data, uint
 
 void LivoxNode::IntegrateCurrentFrame()
 {
-    // 現在のフレームがある場合は統合バッファに追加
+    // 現在のフレームがある場合は統合バッファに追加（タイムスタンプ付き）
     if (!current_frame_buffer_.empty())
     {
-        frame_buffer_.push_back(current_frame_buffer_);
+        auto now = std::chrono::steady_clock::now();
+        frame_buffer_.push_back({now, current_frame_buffer_});
 
         // バッファフレーム数を超えたら古いフレームを削除
         if (frame_buffer_.size() > static_cast<size_t>(buffer_frames_))
         {
-            size_t removed_points = frame_buffer_.front().size();
+            size_t removed_points = frame_buffer_.front().second.size();
             frame_buffer_.pop_front();
 
             RCLCPP_DEBUG(this->get_logger(),
@@ -313,20 +314,43 @@ void LivoxNode::PublishPointCloud()
         return;
     }
 
-    // 全フレームの点群を統合
+    // integration_time_ms より前のフレームを削除
+    auto now = std::chrono::steady_clock::now();
+    auto integration_duration = std::chrono::milliseconds(integration_time_ms_);
+
+    while (!frame_buffer_.empty())
+    {
+        auto frame_age = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - frame_buffer_.front().first);
+
+        if (frame_age > integration_duration)
+        {
+            size_t removed_points = frame_buffer_.front().second.size();
+            frame_buffer_.pop_front();
+            RCLCPP_DEBUG(this->get_logger(),
+                         "Removed frame older than integration_time: age=%ld ms, removed %zu points",
+                         frame_age.count(), removed_points);
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    // 統合時間内のフレームの点群を統合
     pcl::PointCloud<pcl::PointXYZI>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZI>);
 
     size_t total_points = 0;
-    for (const auto &frame : frame_buffer_)
+    for (const auto &frame_pair : frame_buffer_)
     {
-        total_points += frame.size();
+        total_points += frame_pair.second.size();
     }
 
     cloud->points.reserve(total_points);
 
-    for (const auto &frame : frame_buffer_)
+    for (const auto &frame_pair : frame_buffer_)
     {
-        for (const auto &point : frame)
+        for (const auto &point : frame_pair.second)
         {
             pcl::PointXYZI p = point;
             // Y-Z反転処理 (Lidar上下逆向き対応)
@@ -352,6 +376,6 @@ void LivoxNode::PublishPointCloud()
     cloud_pub_->publish(output);
 
     RCLCPP_INFO(this->get_logger(),
-                "Published point cloud with %zu points from %zu frames",
-                cloud->points.size(), frame_buffer_.size());
+                "Published point cloud with %zu points from %zu frames (integration_time=%d ms)",
+                cloud->points.size(), frame_buffer_.size(), integration_time_ms_);
 }
