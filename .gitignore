@@ -1,0 +1,52 @@
+# ROS 2 Build Artifacts
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+*.egg
+
+# C/C++
+*.o
+*.so
+*.a
+*.dylib
+*.out
+*.app
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Bag files (optional - uncomment if you don't want to track bag files)
+# *.bag
+# *.db3
+
+# colcon
+COLCON_IGNORE
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Environment
+.env
+.venv/
+venv/
+ENV/
+
+# OS
+Thumbs.db
