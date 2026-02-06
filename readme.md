@@ -1,47 +1,35 @@
 # Livox MID-70 データ取得・処理システム
 
-## クイックスタート
+- ros2を使ってmid70から点群データを取得し、前処理・背景差分処理を行うシステムです
 
-### 初回セットアップ（ビルド）
+- データ取得用のノードを変更することで、他のLiDARにも対応可能です
 
-```bash
-./build.sh
-```
+## 1. 環境構築について
 
-### システム起動
+- Ubuntu 22.04 Ros2 Humble 環境を前提としています。
+- 詳しい環境構築手順は [セットアップ](documents/setup.md) を参照してください。
 
-```bash
-./start.sh
-```
 
-システムの起動オプションメニューが表示されます。
+## 2. リポジトリ構成について
 
-**オプション:**
-1. データ取得のみ (lidar_get_points)
-2. 前処理ノード (lidar_preprocess)
-3. 背景差分ノード (lidar_background_diff)
-4. 全て同時起動 (データ取得 → 前処理 → 背景差分)
+- 一連の処理をいくつかのROS2ノードとして実装しています。
+- 詳しい実装は、[ファイル構造](documents/flie_struct.md) を参照してください。
 
-## システム構成
+## 3. ビルドと起動について
 
-### データフロー
+- ビルドや実行用のスクリプトを使用することができます
 
-```
-Livox MID-70 LiDAR
-    ↓
-[lidar_get_points] → トピック: livox/pointcloud
-    ↓
-[lidar_preprocess] → トピック: preprocess/pointcloud
-    ↓
-[lidar_background_diff] → トピック: background_diff/pointcloud
-```
+- 詳しいコマンドは[ビルドと実行](documents/bulid.md)を参照してください
 
-### パッケージ説明
+## 4. 設定について
 
-- **lidar_get_points**: Livox SDK を使用してハードウェアから生のポイントクラウドを取得
-- **lidar_preprocess**: ROI フィルタ、ボクセルフィルタ、SOR フィルタによるポイントクラウドの前処理
-- **lidar_background_diff**: 最初の50フレーム(約5秒)で背景モデルを構築し、背景差分により動体のみを抽出
+- フィルターなどで使用するパラメータは、`config/`ディレクトリ内のYAMLファイルで設定可能です
 
-## 詳細
+- 起動時に読み込まれるため、変更後も再ビルドは不要です
 
-詳細な設定・パラメータについては setup.md を参照してください。
+### 設定ファイル（YAML）
+
+- `config/livox_node.yml` - フレームID、公開周波数、フレームバッファサイズなど
+- `config/preprocess_node.yml` - ROI範囲、ボクセルリーフサイズ、SORパラメータ
+- `config/background_diff_node.yml` - 背景モデル構築フレーム数、差分スレッショルド
+
