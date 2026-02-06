@@ -24,6 +24,7 @@ include_directories(
 # Background subtraction node
 add_executable(background_diff_node
   src/background_diff_node.cpp
+  src/ror_filter.cpp
   src/main.cpp
 )
 

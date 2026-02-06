@@ -13,6 +13,8 @@
 #include <filesystem>
 #include <vector>
 
+#include "lidar_background_diff/ror_filter.hpp"
+
 /**
  * @brief 背景差分ノード
  *
@@ -50,10 +52,15 @@ private:
     // 設定パラメータ
     int background_frame_count_; // 背景構築に使用するフレーム数（デフォルト: 50）
     double distance_threshold_;  // 背景との距離閾値（デフォルト: 0.05m）
+    float ror_min_range_;        // RORフィルタの最小距離（デフォルト: 0.5m）
+    float ror_max_range_;        // RORフィルタの最大距離（デフォルト: 10.0m）
 
     // 状態管理
     bool is_background_ready_; // 背景モデルが構築済みかどうか
     int received_frame_count_; // 受信したフレーム数
+
+    // フィルタ
+    std::unique_ptr<RORFilter> ror_filter_; // Range-based Outlier Removal フィルタ
 };
 
 #endif // BACKGROUND_DIFF_NODE_HPP_

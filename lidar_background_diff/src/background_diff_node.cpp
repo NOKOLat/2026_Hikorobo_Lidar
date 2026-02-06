@@ -9,16 +9,23 @@ BackgroundDiffNode::BackgroundDiffNode() : Node("background_diff_node")
     // YAMLのデフォルト値を使用してパラメータを宣言
     this->declare_parameter("background_frame_count", background_frame_count_);
     this->declare_parameter("distance_threshold", distance_threshold_);
+    this->declare_parameter("ror_min_range", ror_min_range_);
+    this->declare_parameter("ror_max_range", ror_max_range_);
 
     // パラメータを取得（コマンドライン引数でオーバーライド可能）
     background_frame_count_ = this->get_parameter("background_frame_count").as_int();
     distance_threshold_ = this->get_parameter("distance_threshold").as_double();
+    ror_min_range_ = this->get_parameter("ror_min_range").as_double();
+    ror_max_range_ = this->get_parameter("ror_max_range").as_double();
 
     // 状態を初期化
     is_background_ready_ = false;
     received_frame_count_ = 0;
     background_model_ = pcl::PointCloud<pcl::PointXYZ>::Ptr(new pcl::PointCloud<pcl::PointXYZ>);
     background_kdtree_ = pcl::KdTreeFLANN<pcl::PointXYZ>::Ptr(new pcl::KdTreeFLANN<pcl::PointXYZ>);
+
+    // RORフィルタを初期化
+    ror_filter_ = std::make_unique<RORFilter>(ror_min_range_, ror_max_range_);
 
     // サブスクライバーを作成（前処理済みポイントクラウドを入力）
     cloud_sub_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
@@ -32,6 +39,8 @@ BackgroundDiffNode::BackgroundDiffNode() : Node("background_diff_node")
     RCLCPP_INFO(this->get_logger(), "背景差分ノードを開始しました");
     RCLCPP_INFO(this->get_logger(), "背景フレーム数: %d", background_frame_count_);
     RCLCPP_INFO(this->get_logger(), "距離閾値: %.3f m", distance_threshold_);
+    RCLCPP_INFO(this->get_logger(), "ROR最小距離: %.3f m", ror_min_range_);
+    RCLCPP_INFO(this->get_logger(), "ROR最大距離: %.3f m", ror_max_range_);
     RCLCPP_INFO(this->get_logger(), "最初の %d フレームで背景モデルを構築します...",
                 background_frame_count_);
 }
@@ -61,6 +70,8 @@ void BackgroundDiffNode::LoadConfigFromYAML()
         // デフォルト値を設定
         background_frame_count_ = 50;
         distance_threshold_ = 0.05; // 5cm
+        ror_min_range_ = 0.5f;      // 0.5m
+        ror_max_range_ = 10.0f;     // 10.0m
         return;
     }
 
@@ -74,6 +85,8 @@ void BackgroundDiffNode::LoadConfigFromYAML()
 
             background_frame_count_ = node_config["background_frame_count"].as<int>(50);
             distance_threshold_ = node_config["distance_threshold"].as<double>(0.05);
+            ror_min_range_ = node_config["ror_min_range"].as<float>(0.5f);
+            ror_max_range_ = node_config["ror_max_range"].as<float>(10.0f);
 
             RCLCPP_INFO(this->get_logger(), "YAML設定ファイルを読み込みました: %s",
                         config_file.c_str());
@@ -84,6 +97,8 @@ void BackgroundDiffNode::LoadConfigFromYAML()
                         "YAML内に 'background_diff_node' セクションが見つかりません。デフォルト値を使用します。");
             background_frame_count_ = 50;
             distance_threshold_ = 0.05;
+            ror_min_range_ = 0.5f;
+            ror_max_range_ = 10.0f;
         }
     }
     catch (const std::exception &e)
@@ -92,6 +107,8 @@ void BackgroundDiffNode::LoadConfigFromYAML()
         RCLCPP_WARN(this->get_logger(), "デフォルト値を使用します。");
         background_frame_count_ = 50;
         distance_threshold_ = 0.05;
+        ror_min_range_ = 0.5f;
+        ror_max_range_ = 10.0f;
     }
 }
 
@@ -117,14 +134,18 @@ void BackgroundDiffNode::CloudCallback(const sensor_msgs::msg::PointCloud2::Shar
     // 背景差分を計算
     pcl::PointCloud<pcl::PointXYZ>::Ptr diff_cloud = ComputeBackgroundDiff(cloud);
 
+    // RORフィルタを適用
+    pcl::PointCloud<pcl::PointXYZ>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    ror_filter_->filter(diff_cloud, filtered_cloud);
+
     // 結果をパブリッシュ
     sensor_msgs::msg::PointCloud2 output_msg;
-    pcl::toROSMsg(*diff_cloud, output_msg);
+    pcl::toROSMsg(*filtered_cloud, output_msg);
     output_msg.header = msg->header; // タイムスタンプとフレームIDを保持
     diff_pub_->publish(output_msg);
 
-    RCLCPP_DEBUG(this->get_logger(), "背景差分完了: 入力=%zu点, 出力=%zu点",
-                 cloud->points.size(), diff_cloud->points.size());
+    RCLCPP_DEBUG(this->get_logger(), "背景差分完了: 入力=%zu点, 背景差分後=%zu点, ROR後=%zu点",
+                 cloud->points.size(), diff_cloud->points.size(), filtered_cloud->points.size());
 }
 
 void BackgroundDiffNode::BuildBackgroundModel(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud)
