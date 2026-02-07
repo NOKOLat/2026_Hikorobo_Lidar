@@ -24,9 +24,10 @@ echo "起動オプション:"
 echo "  1) データ取得のみ (lidar_get_points)"
 echo "  2) 前処理ノード (lidar_preprocess)"
 echo "  3) 背景差分ノード (lidar_background_diff)"
-echo "  4) 全て同時起動 (データ取得 → 前処理 → 背景差分)"
+echo "  4) クラスタリングノード (lidar_clustering)"
+echo "  5) 全て同時起動 (データ取得 → 前処理 → 背景差分 → クラスタリング)"
 echo ""
-read -p "選択してください (1-4): " choice
+read -p "選択してください (1-5): " choice
 
 case $choice in
     1)
@@ -42,6 +43,10 @@ case $choice in
         ros2 run lidar_background_diff background_diff_node
         ;;
     4)
+        echo "クラスタリングノード起動..."
+        ros2 run lidar_clustering clustering_node
+        ;;
+    5)
         echo "全て同時起動..."
         # lidar_get_pointsをバックグラウンドで起動
         ros2 launch lidar_get_points livox.launch.py &
@@ -51,8 +56,12 @@ case $choice in
         ros2 run lidar_preprocess preprocess_node &
         PREPROCESS_PID=$!
         sleep 2
-        # 背景差分ノードを起動（フォアグラウンド）
-        ros2 run lidar_background_diff background_diff_node
+        # 背景差分ノードをバックグラウンドで起動
+        ros2 run lidar_background_diff background_diff_node &
+        BACKGROUND_DIFF_PID=$!
+        sleep 2
+        # クラスタリングノードを起動（フォアグラウンド）
+        ros2 run lidar_clustering clustering_node
         ;;
     *)
         echo "無効な選択です"

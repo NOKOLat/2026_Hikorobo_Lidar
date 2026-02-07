@@ -1,0 +1,9 @@
+clustering_node:
+  # クラスタリングの距離閾値（この距離以内の点を同じクラスタとみなす）
+  cluster_tolerance: 0.1    # 10cm
+
+  # クラスタの最小ポイント数（これ未満のクラスタは除外）
+  min_cluster_size: 50
+
+  # クラスタの最大ポイント数（これ超過のクラスタは除外）
+  max_cluster_size: 10000

@@ -12,7 +12,7 @@ echo "=========================================="
 echo ""
 
 # ビルドを実行
-colcon build --packages-select lidar_get_points lidar_preprocess lidar_background_diff
+colcon build --packages-select lidar_get_points lidar_preprocess lidar_background_diff lidar_clustering
 
 # ビルド結果をチェック
 if [ $? -eq 0 ]; then

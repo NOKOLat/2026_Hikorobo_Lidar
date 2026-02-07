@@ -16,7 +16,11 @@
 │   ├── package.xml
 │   ├── CMakeLists.txt
 │   └── src/ ...
+├──/           <-- [4] クラスタリング用のノード
+│   ├── package.xml
+│   ├── CMakeLists.txt
+│   └── src/ ...
 │
-└── lidar_bringup/             <-- [4] 統合・起動パッケージ
+└── lidar_bringup/             <-- [5] 統合・起動パッケージ
     └── launch/ ...
 ```
