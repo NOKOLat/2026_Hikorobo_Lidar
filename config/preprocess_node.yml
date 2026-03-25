@@ -1,8 +1,8 @@
 preprocess_node:
   # ROI フィルタパラメータ
   roi:
-    min_x: 0.5
-    max_x: 20.0
+    min_x: 0.2
+    max_x: 10.0
     min_y: -5.0
     max_y: 5.0
     min_z: -2.0
@@ -10,7 +10,7 @@ preprocess_node:
 
   # ボクセルフィルタパラメータ
   voxel:
-    leaf_size: 0.05    # メートル
+    leaf_size: 0.005    # メートル
 
   # 統計的外れ値除去フィルタパラメータ
   sor:
